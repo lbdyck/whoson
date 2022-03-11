@@ -1,0 +1,201 @@
+  /* --------------------  rexx procedure  -------------------- *
+  | Name:      WHOSON                                          |
+  |                                                            |
+  | Function:  Using SDSF REXX query for all TSO users on      |
+  |            all systems in the SYSPLEX.                     |
+  |                                                            |
+  | Syntax:    %whoson option \ prefix                         |
+  |                                                            |
+  |            option: B - ISPF Browse results                 |
+  |                    V - ISPF View results                   |
+  |                    null - REXX say                         |
+  |                    ? - display help info                   |
+  |                                                            |
+  | Dependencies:  SDSF REXX                                   |
+  |                STEMEDIT for Browse/View                    |
+  |                                                            |
+  | Author:    Lionel B. Dyck                                  |
+  |                                                            |
+  | History:  (most recent on top)                             |
+  |            2022/03/11 LBD - Cleanup/improve report         |
+  |            2022/03/04 LBD - Creation                       |
+  |                                                            |
+  * ---------------------------------------------------------- *
+  | (c) Copyright by Lionel B. Dyck      License: GPL 3.0      |
+  * ---------------------------------------------------------- */
+
+  arg option '\' prefix .
+
+  /* -------------- *
+  | Check for Help |
+  * -------------- */
+  if strip(option) = '?' then call do_help
+
+  /* -------------------------- *
+  | Enable SDSF Rexx Interface |
+  * -------------------------- */
+  x = isfcalls('on')
+
+  /* -------------------- *
+  | Define key variables |
+  * -------------------- */
+  parse value '' with null lpars users.
+  prefix_len = length(prefix)
+
+  /* ----------------------- *
+  | Issue the query command |
+  * ----------------------- */
+  cmd.0 = 1
+  cmd.1 = 'ro *all,d ts,l'
+  address sdsf 'isfslash' '(cmd.)'
+
+  /* -------------------------------------- *
+  | Find the start of the messages we want |
+  * -------------------------------------- */
+  do i = 1 to isfulog.0
+    isfulog.i = substr(isfulog.i,44)
+    if word(isfulog.i,1) = 'CNZ4105I' then do
+      start = i + 1
+      lpar = mvsvar('sysname')
+      leave
+    end
+    if word(isfulog.i,1) /= 'IEE421I' then iterate
+    start = i + 1
+    leave
+  end
+
+  /* ------------------------------------ *
+  | Extract the system names and userids |
+  * ------------------------------------ */
+  do i = start to isfulog.0
+    isfulog.i = substr(isfulog.i,44)
+    if word(isfulog.i,1) = 'CNZ4105I' then iterate
+    if word(isfulog.i,1) = 'JOBS' then iterate
+    if datatype(word(isfulog.i,1)) = 'NUM' then iterate
+    If pos('RESPONSES',isfulog.i) > 0 then do
+      parse value isfulog.i with lpar .
+      iterate
+    end
+
+    do u = 1 to words(isfulog.i) by 2
+      user = word(isfulog.i,u)
+      if user = 'O' then do
+        u = u - 1
+        iterate
+      end
+      if wordpos(lpar,lpars) = 0
+      then lpars = lpars lpar
+      if prefix_len > 0 then
+      if left(user,prefix_len) /= prefix then iterate
+      users.lpar = users.lpar left(user,8)
+    end
+  end
+
+  /* ----------------------- *
+  | Now Generate our Report |
+  * ----------------------- */
+  c = 2
+  r.1 = 'TSO Users on' words(lpars) 'systems:'
+  r.2 = copies('-',60)
+  do i = 1 to words(lpars)
+    lpar = word(lpars,i)
+    users = sortstr(users.lpar)
+    c = c + 1
+    r.c = 'System:' left(lpar,8) 'Users:' words(users)
+    do iu = 1 to words(users) by 6
+      c = c + 1
+      r.c = left(word(users,iu),8) ,
+        left(word(users,iu+1),8) ,
+        left(word(users,iu+2),8) ,
+        left(word(users,iu+3),8) ,
+        left(word(users,iu+4),8) ,
+        left(word(users,iu+5),8)
+    end
+    c = c + 1
+    r.c = copies('-',60)
+  end
+  r.0 = c
+
+  /* -------------------------- *
+  | Report out based on option |
+  * -------------------------- */
+  if strip(option) = null then do
+    do i = 1 to r.0
+      say r.i
+    end
+    exit 0
+  end
+  if option = 'B' then opt = 'Browse'
+  if option = 'V' then opt = 'View'
+
+Do_StemEdit:
+  call stemedit opt,'r.'
+
+  Exit 0
+
+  /* ------------------------ *
+  | Display help information |
+  * ------------------------ */
+Do_Help:
+  r.1 = 'WHOSON Syntax and Information.'
+  r.2 = ' '
+  r.3 = 'Syntax: %WHOSON option \ prefix'
+  r.4 = ' '
+  r.5 = ' option may be: null    display on terminal'
+  r.6 = '                B       use ISPF Browse'
+  r.7 = '                V       use ISPF View'
+  r.8 = '                ?       display this help information'
+  r.9 = ' '
+  r.10 = ' \ is a required separator (in case of a null option)'
+  r.11 = ' '
+  r.12 = ' prefix is a TSO User ID prefix to limit the report.'
+  r.13 = ' '
+  r.14 = 'Dependencies:   SDSF REXX'
+  r.15 = '                STEMEDIT'
+  r.16 = ' '
+  r.17 = '(c) 2022 Lionel B. Dyck - License: GPL 3.0'
+  r.0 = 17
+
+  opt =  'Browse'
+  if sysvar('sysispf') = 'ACTIVE'
+  then if sysvar('sysenv') = 'FORE'
+  then call do_stemedit
+  do i = 1 to r.0
+    say r.i
+  end
+  Exit 0
+
+
+  /* --------------------  rexx procedure  -------------------- *
+  | Name:      SortStr                                         |
+  |                                                            |
+  | Function:  Sorts the provided string and returns it        |
+  |                                                            |
+  | Syntax:    string = sortstr(string)                        |
+  |                                                            |
+  | Usage:     Pass any string to SORTSTR and it will return   |
+  |            the string sorted                               |
+  |                                                            |
+  | Author:    Lionel B. Dyck                                  |
+  |                                                            |
+  | History:  (most recent on top)                             |
+  |            10/13/20 - Eliminate extra blank on last entry  |
+  |            09/19/17 - Creation                             |
+  |                                                            |
+  * ---------------------------------------------------------- */
+SortSTR: Procedure
+  parse arg string
+  do imx = 1 to words(string)-1
+    do im = 1 to words(string)
+      w1 = word(string,im)
+      w2 = word(string,im+1)
+      if w1 > w2 then do
+        if im > 1
+        then  lm = subword(string,1,im-1)
+        else lm = ''
+        rm = subword(string,im+2)
+        string = lm strip(w2 w1) rm
+      end
+    end
+  end
+  return strip(string)
