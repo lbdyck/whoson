@@ -60,12 +60,10 @@
   /* ------------------------------------ *
   | Extract the system names and userids |
   * ------------------------------------ */
-  total_users = jname.0
+  total_users = 0
   do i = 1 to jname.0
     lpar = sysname.i
     user = jname.i
-    if wordpos(lpar,lpars) = 0
-    then lpars = lpars lpar
     if prefix_len > 0 then do
        if pos('*',prefix) > 0
           then do
@@ -74,6 +72,9 @@
                end
        else if left(user,prefix_len) /= prefix then iterate
     end
+    if wordpos(lpar,lpars) = 0
+    then lpars = lpars lpar
+    total_users = total_users + 1
     users.lpar = users.lpar left(user,8)
     users.user = get_user_name(user)
   end
