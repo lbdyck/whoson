@@ -4,24 +4,30 @@
   | Function:  Using SDSF REXX query for all TSO users on      |
   |            all systems in the SYSPLEX.                     |
   |                                                            |
-  | Syntax:    %whoson option \ prefix                         |
+  | Syntax:    %whoson option \ prefix-or-filter               |
   |                                                            |
   |            option: B - ISPF Browse results                 |
   |                    V - ISPF View results                   |
   |                    null - REXX say                         |
   |                    ? - display help info                   |
   |                                                            |
+  |            prefix - any char string prefixing userid       |
+  |                     e.g. SPL                               |
+  |            filter - any chars within a userid              |
+  |                     e.g. *L or L*                          |
+  |                                                            |
   | Dependencies:  SDSF REXX                                   |
   |                STEMEDIT for Browse/View                    |
+  |                RACF LU                                     |
   |                                                            |
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2022/03/14 LBD - Use SDSF DA instead of RO cmd  |
+  |                           - add filter option              |
   |            2022/03/11 LBD - Cleanup/improve report         |
   |            2022/03/04 LBD - Creation                       |
   |                                                            |
-  * ---------------------------------------------------------- *
-  | (c) Copyright by Lionel B. Dyck      License: GPL 3.0      |
   * ---------------------------------------------------------- */
 
   arg option '\' prefix .
@@ -45,71 +51,47 @@
   /* ----------------------- *
   | Issue the query command |
   * ----------------------- */
-  cmd.0 = 1
-  cmd.1 = 'ro *all,d ts,l'
-  address sdsf 'isfslash' '(cmd.)'
-
-  /* -------------------------------------- *
-  | Find the start of the messages we want |
-  * -------------------------------------- */
-  do i = 1 to isfulog.0
-    isfulog.i = substr(isfulog.i,44)
-    if word(isfulog.i,1) = 'CNZ4105I' then do
-      start = i + 1
-      lpar = mvsvar('sysname')
-      leave
-    end
-    if word(isfulog.i,1) /= 'IEE421I' then iterate
-    start = i + 1
-    leave
-  end
+  x = isfcalls('on')
+  isfsysname = '*'
+  isffilter = 'jobid t*'
+  Address SDSF "ISFEXEC da"
 
   /* ------------------------------------ *
   | Extract the system names and userids |
   * ------------------------------------ */
-  do i = start to isfulog.0
-    isfulog.i = substr(isfulog.i,44)
-    if word(isfulog.i,1) = 'CNZ4105I' then iterate
-    if word(isfulog.i,1) = 'JOBS' then iterate
-    if datatype(word(isfulog.i,1)) = 'NUM' then iterate
-    If pos('RESPONSES',isfulog.i) > 0 then do
-      parse value isfulog.i with lpar .
-      iterate
+  total_users = jname.0
+  do i = 1 to jname.0
+    lpar = sysname.i
+    user = jname.i
+    if wordpos(lpar,lpars) = 0
+    then lpars = lpars lpar
+    if prefix_len > 0 then do
+       if pos('*',prefix) > 0
+          then do
+               tpref = strip(translate(prefix,' ','*'))
+               if pos(tpref,user) = 0 then iterate
+               end
+       else if left(user,prefix_len) /= prefix then iterate
     end
-
-    do u = 1 to words(isfulog.i) by 2
-      user = word(isfulog.i,u)
-      if user = 'O' then do
-        u = u - 1
-        iterate
-      end
-      if wordpos(lpar,lpars) = 0
-      then lpars = lpars lpar
-      if prefix_len > 0 then
-      if left(user,prefix_len) /= prefix then iterate
-      users.lpar = users.lpar left(user,8)
-    end
+    users.lpar = users.lpar left(user,8)
+    users.user = get_user_name(user)
   end
 
   /* ----------------------- *
   | Now Generate our Report |
   * ----------------------- */
   c = 2
-  r.1 = 'TSO Users on' words(lpars) 'systems:'
+  r.1 = 'TSO Users on' words(lpars) 'Systems - Users:' total_users
   r.2 = copies('-',60)
   do i = 1 to words(lpars)
     lpar = word(lpars,i)
     users = sortstr(users.lpar)
     c = c + 1
     r.c = 'System:' left(lpar,8) 'Users:' words(users)
-    do iu = 1 to words(users) by 6
+    do iu = 1 to words(users)
       c = c + 1
-      r.c = left(word(users,iu),8) ,
-        left(word(users,iu+1),8) ,
-        left(word(users,iu+2),8) ,
-        left(word(users,iu+3),8) ,
-        left(word(users,iu+4),8) ,
-        left(word(users,iu+5),8)
+      uid = word(users,iu)
+      r.c = left(uid,8) users.uid
     end
     c = c + 1
     r.c = copies('-',60)
@@ -139,7 +121,7 @@ Do_StemEdit:
 Do_Help:
   r.1 = 'WHOSON Syntax and Information.'
   r.2 = ' '
-  r.3 = 'Syntax: %WHOSON option \ prefix'
+  r.3 = 'Syntax: %WHOSON option \ prefix-or-filter'
   r.4 = ' '
   r.5 = ' option may be: null    display on terminal'
   r.6 = '                B       use ISPF Browse'
@@ -149,12 +131,13 @@ Do_Help:
   r.10 = ' \ is a required separator (in case of a null option)'
   r.11 = ' '
   r.12 = ' prefix is a TSO User ID prefix to limit the report.'
-  r.13 = ' '
-  r.14 = 'Dependencies:   SDSF REXX'
-  r.15 = '                STEMEDIT'
+  r.13 = '        e.g. SPL'
+  r.14 = ' filter is a string to find in the userid.'
+  r.15 = '        e.g. *L or L*'
   r.16 = ' '
-  r.17 = '(c) 2022 Lionel B. Dyck - License: GPL 3.0'
-  r.0 = 17
+  r.17 = 'Dependencies:   SDSF REXX'
+  r.18 = '                STEMEDIT'
+  r.0 = 18
 
   opt =  'Browse'
   if sysvar('sysispf') = 'ACTIVE'
@@ -165,6 +148,18 @@ Do_Help:
   end
   Exit 0
 
+  /* --------------------------------- *
+  | Extract the User's Name from RACF |
+  * --------------------------------- */
+Get_User_Name:
+  arg uid
+  call  outtrap 'uid.'
+  'lu' uid
+  call outtrap 'off'
+  parse value uid.1 with .'NAME='name 'OWNER='.
+  return strip(name)
+  name = 'None'
+  return
 
   /* --------------------  rexx procedure  -------------------- *
   | Name:      SortStr                                         |
