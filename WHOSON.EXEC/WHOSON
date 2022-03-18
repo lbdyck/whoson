@@ -46,8 +46,16 @@
   /* -------------------- *
   | Define key variables |
   * -------------------- */
-  parse value '' with null lpars users.
-  prefix_len = length(prefix)
+  parse value '' with null lpars users. tpref
+
+  /* --------------------------------- *
+   | Check and configure Prefix/Filter |
+   * --------------------------------- */
+  if length(prefix) > 0 then do
+  if pos('*',prefix) > 0
+     then tpref = strip(translate(prefix,' ','*'))
+     else prefix_len = length(prefix)
+  end
 
   /* ----------------------- *
   | Issue the query command |
@@ -64,14 +72,10 @@
   do i = 1 to jname.0
     lpar = sysname.i
     user = jname.i
-    if prefix_len > 0 then do
-       if pos('*',prefix) > 0
-          then do
-               tpref = strip(translate(prefix,' ','*'))
-               if pos(tpref,user) = 0 then iterate
-               end
-       else if left(user,prefix_len) /= prefix then iterate
-    end
+    if prefix_len > 0 then
+       if left(user,prefix_len) /= prefix then iterate
+     if tpref /= null then
+        if pos(tpref,user) = 0 then iterate
     if wordpos(lpar,lpars) = 0
     then lpars = lpars lpar
     total_users = total_users + 1
