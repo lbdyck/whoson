@@ -76,9 +76,8 @@
   end
 
   /* ----------------------- *
-  | Issue the query command |
+  | Set up system filter    |
   * ----------------------- */
-  x = isfcalls('on')
   isfsysname = '*'
 
   /* --------------- TSO ---------------- *
