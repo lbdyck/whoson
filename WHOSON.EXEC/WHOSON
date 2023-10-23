@@ -1,8 +1,8 @@
   /* --------------------  rexx procedure  -------------------- *
   | Name:      WHOSON                                          |
   |                                                            |
-  | Function:  Using SDSF REXX query for all TSO users on      |
-  |            all systems in the SYSPLEX.                     |
+  | Function:  Using SDSF REXX query for all TSO users and     |
+  |            all SSH users on all systems in the SYSPLEX.    |
   |                                                            |
   | Syntax:    %whoson option \ prefix-or-filter               |
   |                                                            |
@@ -20,9 +20,16 @@
   |                STEMEDIT for Browse/View                    |
   |                RACF LU                                     |
   |                                                            |
+  | Customizations:  1. Change RACFLU variable from 1 to 0     |
+  |                     - if you don't have RACF               |
+  |                     - if made available to those who can't |
+  |                       do an LU for other userids.          |
+  |                                                            |
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2023/10/23 LBD - Add ssh users                  |
+  |            2022/03/31 LBD - Add option to bypass RACF LU   |
   |            2022/03/14 LBD - Use SDSF DA instead of RO cmd  |
   |                           - add filter option              |
   |                           - Fix case of user name          |
@@ -38,6 +45,17 @@
   * -------------- */
   if strip(option) = '?' then call do_help
 
+  /* ------------------------------------------------------------ *
+  | Site Customizations                                          |
+  |                                                              |
+  |    RACFLU - allow or disallow doing an LU to get the name of |
+  |             the TSO users.                                   |
+  |                                                              |
+  |             0 = Do not allow                                 |
+  |             1 = Allow                                        |
+  * ------------------------------------------------------------ */
+  RACFLU = 1
+
   /* -------------------------- *
   | Enable SDSF Rexx Interface |
   * -------------------------- */
@@ -49,12 +67,12 @@
   parse value '' with null lpars users. tpref
 
   /* --------------------------------- *
-   | Check and configure Prefix/Filter |
-   * --------------------------------- */
+  | Check and configure Prefix/Filter |
+  * --------------------------------- */
   if length(prefix) > 0 then do
-  if pos('*',prefix) > 0
-     then tpref = strip(translate(prefix,' ','*'))
-     else prefix_len = length(prefix)
+    if pos('*',prefix) > 0
+    then tpref = strip(translate(prefix,' ','*'))
+    else prefix_len = length(prefix)
   end
 
   /* ----------------------- *
@@ -62,26 +80,55 @@
   * ----------------------- */
   x = isfcalls('on')
   isfsysname = '*'
-  isffilter = 'jobid t*'
-  Address SDSF "ISFEXEC da"
 
-  /* ------------------------------------ *
+  /* --------------- TSO ---------------- *
   | Extract the system names and userids |
   * ------------------------------------ */
+  isffilter = 'jobid t*'
+  Address SDSF "ISFEXEC da"
   total_users = 0
   do i = 1 to jname.0
     lpar = sysname.i
     user = jname.i
     if prefix_len > 0 then
-       if left(user,prefix_len) /= prefix then iterate
-     if tpref /= null then
-        if pos(tpref,user) = 0 then iterate
+    if left(user,prefix_len) /= prefix then iterate
+    if tpref /= null then
+    if pos(tpref,user) = 0 then iterate
     if wordpos(lpar,lpars) = 0
     then lpars = lpars lpar
     total_users = total_users + 1
-    users.lpar = users.lpar left(user,8)
-    users.user = get_user_name(user)
+    users.lpar = users.lpar strip(user)
+    if racflu = 1
+    then users.user = get_user_name(user)
+    else users.user = null
   end
+  all_users = total_users
+
+  /* --------------- SSH ---------------- *
+  | Extract the system names and userids |
+  * ------------------------------------ */
+  isffilter = 'jname sshd*'
+  Address SDSF "ISFEXEC ps"
+  total_users = 0
+  do i = 1 to jname.0
+    if jobid.i /= null then iterate
+    lpar = sysname.i
+    user = ownerid.i
+    if prefix_len > 0 then
+    if left(user,prefix_len) /= prefix then iterate
+    if tpref /= null then
+    if pos(tpref,user) = 0 then iterate
+    if wordpos(lpar,lpars) = 0
+    then lpars = lpars lpar
+    user = strip(left(user'>',9))
+    if wordpos(user,users.lpar) > 0 then iterate
+    total_users = total_users + 1
+    users.lpar = users.lpar user
+    if racflu = 1
+    then users.user = get_user_name(user)
+    else users.user = null
+  end
+  total_users = total_users + all_users
 
   /* ----------------------- *
   | Now Generate our Report |
@@ -93,11 +140,17 @@
     lpar = word(lpars,i)
     users = sortstr(users.lpar)
     c = c + 1
-    r.c = 'System: ' left(lpar,8) 'Users:' words(users)
+    r.c = 'System:  ' left(lpar,8) 'Users:' words(users)
     do iu = 1 to words(users)
       c = c + 1
       uid = word(users,iu)
-      r.c = left(uid,8) users.uid
+      if right(uid,1) = '>'
+      then do
+        sshflag = '(ssh)'
+        uid = left(uid,length(uid)-1)
+      end
+      else sshflag = null
+      r.c = left(uid,9) users.uid sshflag
     end
     c = c + 1
     r.c = copies('-',60)
@@ -118,7 +171,6 @@
 
 Do_StemEdit:
   call stemedit opt,'r.'
-
   Exit 0
 
   /* ------------------------ *
@@ -158,9 +210,12 @@ Do_Help:
   | Extract the User's Name from RACF |
   * --------------------------------- */
 Get_User_Name:
-  arg uid
+  arg uid .
+  if right(uid,1) = '>'
+  then  tuid = left(uid,length(uid)-1)
+  else tuid = uid
   call  outtrap 'uid.'
-  'lu' uid
+  'lu' tuid
   call outtrap 'off'
   parse value uid.1 with .'NAME='name 'OWNER='.
   return strip(cap1st(name))
@@ -202,49 +257,49 @@ SortSTR: Procedure
   return strip(string)
 
   /* ----------------------------------------------------- *
-   | Name:  Cap1st                                         |
-   |                                                       |
-   | Function: Lowercase a string and then capitalize each |
-   |           individual word.                            |
-   |                                                       |
-   | Syntax: x = cap1st(string)                            |
-   |      or x = cap1st(string,LC)                         |
-   |                                                       |
-   |      LC leaves the last word capitalized              |
-   |                                                       |
-   | History:                                              |
-   |           2021/12/14 Add exceptions                   |
-   |           2021/11/29 Created by LBD                   |
-   |                                                       |
-   * ----------------------------------------------------- */
+  | Name:  Cap1st                                         |
+  |                                                       |
+  | Function: Lowercase a string and then capitalize each |
+  |           individual word.                            |
+  |                                                       |
+  | Syntax: x = cap1st(string)                            |
+  |      or x = cap1st(string,LC)                         |
+  |                                                       |
+  |      LC leaves the last word capitalized              |
+  |                                                       |
+  | History:                                              |
+  |           2021/12/14 Add exceptions                   |
+  |           2021/11/29 Created by LBD                   |
+  |                                                       |
+  * ----------------------------------------------------- */
 Cap1st: Procedure
- parse arg string','lc
- lc = translate(lc)
- reserved = 'DJC HSM'
- string = translate(string,"abcdefghijklmnopqrstuvwxyz",,
-                           "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
- if lc = 'LC'
-    then len = words(string) - 1
-    else len = words(string)
- do i = 1 to len
+  parse arg string','lc
+  lc = translate(lc)
+  reserved = 'DJC HSM'
+  string = translate(string,"abcdefghijklmnopqrstuvwxyz",,
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+  if lc = 'LC'
+  then len = words(string) - 1
+  else len = words(string)
+  do i = 1 to len
     w = word(string,i)
     if wordpos(translate(w),reserved) = 0 then do
-    c = left(w,1)
-    w = overlay(translate(c),w,1,1)
+      c = left(w,1)
+      w = overlay(translate(c),w,1,1)
     end
     else do
-         w = translate(w)
-         end
-    if i = 1
-       then string = w subword(string,2)
-       else do
-            lw = subword(string,1,i-1)
-            rw = subword(string,i+1)
-            string = lw w rw
-            end
+      w = translate(w)
     end
-    if lc = 'LC' then do
-       w = translate(word(string,len+1))
-       string = subword(string,1,len) w
-       end
-    return string
+    if i = 1
+    then string = w subword(string,2)
+    else do
+      lw = subword(string,1,i-1)
+      rw = subword(string,i+1)
+      string = lw w rw
+    end
+  end
+  if lc = 'LC' then do
+    w = translate(word(string,len+1))
+    string = subword(string,1,len) w
+  end
+  return string
