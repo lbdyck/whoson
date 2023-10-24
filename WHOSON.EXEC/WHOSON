@@ -28,6 +28,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2023/10/24 LBD - Correct name display for ssh   |
   |            2023/10/23 LBD - Add ssh users                  |
   |            2022/03/31 LBD - Add option to bypass RACF LU   |
   |            2022/03/14 LBD - Use SDSF DA instead of RO cmd  |
@@ -146,10 +147,14 @@
       if right(uid,1) = '>'
       then do
         sshflag = '(ssh)'
-        uid = left(uid,length(uid)-1)
+        name = subword(users.uid,1)
+        tuid = left(uid,length(uid)-1)
       end
-      else sshflag = null
-      r.c = left(uid,9) users.uid sshflag
+      else do
+           sshflag = null
+           tuid = uid
+           end
+      r.c = left(tuid,9) users.uid sshflag
     end
     c = c + 1
     r.c = copies('-',60)
