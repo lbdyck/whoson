@@ -28,7 +28,8 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
-  |            2023/10/24 LBD - Correct name display for ssh   |
+  |            2023/10/28 LBD - Fix if racflu is 1 but s/b 0   |
+  |            2023/10/26 LBD - Split Total users into TSO/SSH |
   |            2023/10/23 LBD - Add ssh users                  |
   |            2022/03/31 LBD - Add option to bypass RACF LU   |
   |            2022/03/14 LBD - Use SDSF DA instead of RO cmd  |
@@ -86,7 +87,7 @@
   * ------------------------------------ */
   isffilter = 'jobid t*'
   Address SDSF "ISFEXEC da"
-  total_users = 0
+  tso_users = 0
   do i = 1 to jname.0
     lpar = sysname.i
     user = jname.i
@@ -96,20 +97,19 @@
     if pos(tpref,user) = 0 then iterate
     if wordpos(lpar,lpars) = 0
     then lpars = lpars lpar
-    total_users = total_users + 1
+    tso_users = tso_users + 1
     users.lpar = users.lpar strip(user)
     if racflu = 1
     then users.user = get_user_name(user)
     else users.user = null
   end
-  all_users = total_users
 
   /* --------------- SSH ---------------- *
   | Extract the system names and userids |
   * ------------------------------------ */
   isffilter = 'jname sshd*'
   Address SDSF "ISFEXEC ps"
-  total_users = 0
+  ssh_users = 0
   do i = 1 to jname.0
     if jobid.i /= null then iterate
     lpar = sysname.i
@@ -122,19 +122,20 @@
     then lpars = lpars lpar
     user = strip(left(user'>',9))
     if wordpos(user,users.lpar) > 0 then iterate
-    total_users = total_users + 1
+    ssh_users = ssh_users + 1
     users.lpar = users.lpar user
     if racflu = 1
     then users.user = get_user_name(user)
     else users.user = null
   end
-  total_users = total_users + all_users
+  total_users = ssh_users + tso_users
 
   /* ----------------------- *
   | Now Generate our Report |
   * ----------------------- */
   c = 2
-  r.1 = 'TSO Users on' words(lpars) 'Systems - Users:' total_users
+  r.1 = 'Interactive Users on' words(lpars) 'Systems:',
+        'TSO Users:' tso_users 'SSH Users:' ssh_users
   r.2 = copies('-',60)
   do i = 1 to words(lpars)
     lpar = word(lpars,i)
@@ -220,11 +221,17 @@ Get_User_Name:
   else tuid = uid
   call  outtrap 'uid.'
   'lu' tuid
+  lurc = rc
   call outtrap 'off'
+  if lurc > 0 then do
+     racflu = 0
+     name = null
+     return name
+     end
   parse value uid.1 with .'NAME='name 'OWNER='.
   return strip(cap1st(name))
   name = 'None'
-  return
+  return name
 
   /* --------------------  rexx procedure  -------------------- *
   | Name:      SortStr                                         |
