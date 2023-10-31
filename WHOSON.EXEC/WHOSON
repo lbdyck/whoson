@@ -28,6 +28,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2023/10/31 LBD - Fix for filtering              |
   |            2023/10/28 LBD - Fix if racflu is 1 but s/b 0   |
   |            2023/10/26 LBD - Split Total users into TSO/SSH |
   |            2023/10/23 LBD - Add ssh users                  |
@@ -74,27 +75,25 @@
   if length(prefix) > 0 then do
     if pos('*',prefix) > 0
     then tpref = strip(translate(prefix,' ','*'))
-    else prefix_len = length(prefix)
+    else tpref = strip(translate(prefix))
   end
 
-  /* ----------------------- *
-  | Set up system filter    |
-  * ----------------------- */
+  /* ------------------ *
+   | Define our filters |
+   * ------------------ */
   isfsysname = '*'
+  isfowner = "*"
+  isfprefix = tpref'*'
+  isffilter = 'jobid t*'
 
   /* --------------- TSO ---------------- *
   | Extract the system names and userids |
   * ------------------------------------ */
-  isffilter = 'jobid t*'
   Address SDSF "ISFEXEC da"
   tso_users = 0
   do i = 1 to jname.0
     lpar = sysname.i
     user = jname.i
-    if prefix_len > 0 then
-    if left(user,prefix_len) /= prefix then iterate
-    if tpref /= null then
-    if pos(tpref,user) = 0 then iterate
     if wordpos(lpar,lpars) = 0
     then lpars = lpars lpar
     tso_users = tso_users + 1
@@ -114,10 +113,6 @@
     if jobid.i /= null then iterate
     lpar = sysname.i
     user = ownerid.i
-    if prefix_len > 0 then
-    if left(user,prefix_len) /= prefix then iterate
-    if tpref /= null then
-    if pos(tpref,user) = 0 then iterate
     if wordpos(lpar,lpars) = 0
     then lpars = lpars lpar
     user = strip(left(user'>',9))
