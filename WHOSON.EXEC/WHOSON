@@ -28,6 +28,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2023/11/05 PJF - Clean up filters for PS        |
   |            2023/10/31 LBD - Fix for filtering              |
   |            2023/10/28 LBD - Fix if racflu is 1 but s/b 0   |
   |            2023/10/26 LBD - Split Total users into TSO/SSH |
@@ -106,6 +107,8 @@
   /* --------------- SSH ---------------- *
   | Extract the system names and userids |
   * ------------------------------------ */
+  isfprefix = '*'
+  isfowner = tpref"*"
   isffilter = 'jname sshd*'
   Address SDSF "ISFEXEC ps"
   ssh_users = 0
