@@ -28,6 +28,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2023/11/08 LBD - Add ssh count per lpar         |
   |            2023/11/06 LBD - Sort lpar names                |
   |            2023/11/05 PJF - Clean up filters for PS        |
   |            2023/10/31 LBD - Fix for filtering              |
@@ -140,8 +141,12 @@
   do i = 1 to words(lpars)
     lpar = word(lpars,i)
     users = sortstr(users.lpar)
+    ssh_users = get_ssh(users)
+    if ssh_users = 0
+       then sshu = null
+       else sshu = 'ssh:' ssh_users
     c = c + 1
-    r.c = 'System:  ' left(lpar,8) 'Users:' words(users)
+    r.c = 'System:  ' left(lpar,8) 'Users:' words(users) sshu
     do iu = 1 to words(users)
       c = c + 1
       uid = word(users,iu)
@@ -177,6 +182,11 @@
 Do_StemEdit:
   call stemedit opt,'r.'
   Exit 0
+
+Get_ssh: Procedure
+   arg users
+   users = translate(users,' ','ABCDEFGHIJKLMNOPQRSTUVWXYZ$#@0123456789')
+   return words(users)
 
   /* ------------------------ *
   | Display help information |
