@@ -3,9 +3,13 @@
 WHOSON is a TSO command, written in REXX, that will generate a report
 of all, or selected, TSO and SSH users on all the systems within the SYSPLEX.
 
+Will also work as an OMVS Shell command.
+
 ## Installation
 
 Copy the exec into a library in your SYSEXEC, or SYSPROC, allocated libraries.
+
+For use under OMVS copy the exec into OMVS and then `chmod +x whoson`.
 
 ## Dependencies:
 
