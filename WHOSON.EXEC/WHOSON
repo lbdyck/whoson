@@ -290,6 +290,7 @@ Cap1st: Procedure
   reserved = 'DJC HSM'
   string = translate(string,"abcdefghijklmnopqrstuvwxyz",,
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+  string = translate(string,' ',',')
   len = words(string)
   do i = 1 to len
     w = word(string,i)
