@@ -31,6 +31,7 @@
   |                                                            |
   | History:  (most recent on top)                             |
   |            2024/01/31 LBD - Enable to run under OMVS shell |
+  |                           - correct for names with ,'s     |
   |            2023/11/06 LBD - Sort lpar names                |
   |            2023/11/05 PJF - Clean up filters for PS        |
   |            2023/10/31 LBD - Fix for filtering              |
@@ -277,24 +278,19 @@ SortSTR: Procedure
   |           individual word.                            |
   |                                                       |
   | Syntax: x = cap1st(string)                            |
-  |      or x = cap1st(string,LC)                         |
-  |                                                       |
-  |      LC leaves the last word capitalized              |
   |                                                       |
   | History:                                              |
+  |           2024/01/31 Remove LC option (not needed)    |
   |           2021/12/14 Add exceptions                   |
   |           2021/11/29 Created by LBD                   |
   |                                                       |
   * ----------------------------------------------------- */
 Cap1st: Procedure
-  parse arg string','lc
-  lc = translate(lc)
+  parse arg string
   reserved = 'DJC HSM'
   string = translate(string,"abcdefghijklmnopqrstuvwxyz",,
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-  if lc = 'LC'
-  then len = words(string) - 1
-  else len = words(string)
+  len = words(string)
   do i = 1 to len
     w = word(string,i)
     if wordpos(translate(w),reserved) = 0 then do
@@ -311,9 +307,5 @@ Cap1st: Procedure
       rw = subword(string,i+1)
       string = lw w rw
     end
-  end
-  if lc = 'LC' then do
-    w = translate(word(string,len+1))
-    string = subword(string,1,len) w
   end
   return string
