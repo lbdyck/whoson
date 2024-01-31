@@ -1,3 +1,5 @@
+/* REXX */
+
   /* --------------------  rexx procedure  -------------------- *
   | Name:      WHOSON                                          |
   |                                                            |
@@ -25,15 +27,10 @@
   |                     - if made available to those who can't |
   |                       do an LU for other userids.          |
   |                                                            |
-  | Notes: If the RACF LU command is not authorized then the   |
-  |        name for the requested userid will be blank         |
-  |                                                            |
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
-  |            2023/11/09 LBD - Continue LU after non-auth     |
-  |                             per John Gateley               |
-  |            2023/11/08 LBD - Add ssh count per lpar         |
+  |            2024/01/31 LBD - Enable to run under OMVS shell |
   |            2023/11/06 LBD - Sort lpar names                |
   |            2023/11/05 PJF - Clean up filters for PS        |
   |            2023/10/31 LBD - Fix for filtering              |
@@ -146,12 +143,8 @@
   do i = 1 to words(lpars)
     lpar = word(lpars,i)
     users = sortstr(users.lpar)
-    ssh_users = get_ssh(users)
-    if ssh_users = 0
-       then sshu = null
-       else sshu = 'ssh:' ssh_users
     c = c + 1
-    r.c = 'System:  ' left(lpar,8) 'Users:' words(users) sshu
+    r.c = 'System:  ' left(lpar,8) 'Users:' words(users)
     do iu = 1 to words(users)
       c = c + 1
       uid = word(users,iu)
@@ -187,11 +180,6 @@
 Do_StemEdit:
   call stemedit opt,'r.'
   Exit 0
-
-Get_ssh: Procedure
-   arg users
-   users = translate(users,' ','ABCDEFGHIJKLMNOPQRSTUVWXYZ$#@0123456789')
-   return words(users)
 
   /* ------------------------ *
   | Display help information |
@@ -235,10 +223,11 @@ Get_User_Name:
   then  tuid = left(uid,length(uid)-1)
   else tuid = uid
   call  outtrap 'uid.'
-  'lu' tuid
+  Address TSO 'lu' tuid
   lurc = rc
   call outtrap 'off'
   if lurc > 0 then do
+     racflu = 0
      name = null
      return name
      end
