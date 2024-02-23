@@ -14,7 +14,7 @@ For use under OMVS copy the exec into OMVS and then `chmod +x whoson`.
 ## Dependencies:
 
    * SDSF REXX
-   * STEMEDIT
+   * STEMEDIT   -- Not required when running under the z/OS Unix shell
    * RACF LU command
 
 ### Notes

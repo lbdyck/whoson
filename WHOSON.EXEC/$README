@@ -8,5 +8,5 @@ to work.
 Dependencies:
 
    * SDSF REXX
-   * STEMEDIT
+   * STEMEDIT  -- not required when run under the shell
    * RACF LU
