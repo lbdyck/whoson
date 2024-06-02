@@ -1,10 +1,13 @@
-/* REXX */
+  /* REXX */
 
   /* --------------------  rexx procedure  -------------------- *
   | Name:      WHOSON                                          |
   |                                                            |
   | Function:  Using SDSF REXX query for all TSO users and     |
   |            all SSH users on all systems in the SYSPLEX.    |
+  |                                                            |
+  |            Also report on any other address spaces         |
+  |            - find *other* and follow instructions          |
   |                                                            |
   | Syntax:    %whoson option \ prefix-or-filter               |
   |                                                            |
@@ -30,6 +33,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2024/06/21 LBD - Add *other* users              |
   |            2024/01/31 LBD - Enable to run under OMVS shell |
   |                           - correct for names with ,'s     |
   |                             with text before , going last  |
@@ -85,14 +89,71 @@
     else tpref = strip(translate(prefix))
   end
 
+  call Do_TSO
+  call Do_SSH
+  call Do_Other
+
+  total_users = ssh_users + tso_users + other_users
+
+  /* ----------------------- *
+  | Now Generate our Report |
+  * ----------------------- */
+  c = 2
+  r.1 = 'Interactive Users on' words(lpars) 'Systems:',
+    'TSO Users:' tso_users 'SSH Users:' ssh_users
+  if other_users > 0 then
+  r.1 = r.1 'Other Users:' other_users
+  r.2 = copies('-',length(r.1))
+  lpars = sortstr(lpars)
+  do i = 1 to words(lpars)
+    lpar = word(lpars,i)
+    users = sortstr(users.lpar)
+    c = c + 1
+    r.c = 'System:  ' left(lpar,8) 'Users:' words(users)
+    do iu = 1 to words(users)
+      c = c + 1
+      uid = word(users,iu)
+      if right(uid,1) = '>'
+      then do
+        sshflag = '(ssh)'
+        name = subword(users.uid,1)
+        tuid = left(uid,length(uid)-1)
+      end
+      else do
+        sshflag = null
+        tuid = uid
+      end
+      r.c = left(tuid,9) users.uid sshflag
+    end
+    c = c + 1
+    r.c = copies('-',length(r.1))
+  end
+  r.0 = c
+
+  /* -------------------------- *
+  | Report out based on option |
+  * -------------------------- */
+  if strip(option) = null then do
+    do i = 1 to r.0
+      say r.i
+    end
+    exit 0
+  end
+  if option = 'B' then opt = 'Browse'
+  if option = 'V' then opt = 'View'
+
+Do_StemEdit:
+  call stemedit opt,'r.'
+  Exit 0
+
+Do_TSO:
   /* ------------------ *
-   | Define our filters |
-   * ------------------ */
+  | Define our filters |
+  * ------------------ */
   isfsysname = '*'
   isfowner = "*"
   isfprefix = tpref'*'
   isffilter = 'jobid t*'
-
   /* --------------- TSO ---------------- *
   | Extract the system names and userids |
   * ------------------------------------ */
@@ -109,7 +170,9 @@
     then users.user = get_user_name(user)
     else users.user = null
   end
+  Return
 
+Do_SSH:
   /* --------------- SSH ---------------- *
   | Extract the system names and userids |
   * ------------------------------------ */
@@ -132,56 +195,40 @@
     then users.user = get_user_name(user)
     else users.user = null
   end
-  total_users = ssh_users + tso_users
+  Return
 
-  /* ----------------------- *
-  | Now Generate our Report |
-  * ----------------------- */
-  c = 2
-  r.1 = 'Interactive Users on' words(lpars) 'Systems:',
-        'TSO Users:' tso_users 'SSH Users:' ssh_users
-  r.2 = copies('-',60)
-  lpars = sortstr(lpars)
-  do i = 1 to words(lpars)
-    lpar = word(lpars,i)
-    users = sortstr(users.lpar)
-    c = c + 1
-    r.c = 'System:  ' left(lpar,8) 'Users:' words(users)
-    do iu = 1 to words(users)
-      c = c + 1
-      uid = word(users,iu)
-      if right(uid,1) = '>'
-      then do
-        sshflag = '(ssh)'
-        name = subword(users.uid,1)
-        tuid = left(uid,length(uid)-1)
-      end
-      else do
-           sshflag = null
-           tuid = uid
-           end
-      r.c = left(tuid,9) users.uid sshflag
+Do_Other:
+  /* ---------------------------------------------------- *
+  | Add address space prefixes (e.g. XX* AB*) to process |
+  | If blank then no other check will be performed.      |
+  * ---------------------------------------------------- */
+  other_users = 0
+  other = null         /* *other* set to null to bypass */
+  if strip(other) = null then return
+  do ispec = 1 to words(other)
+  /* -------------- *
+   | Define filters |
+   * -------------- */
+    isfsysname = '*'
+    isfowner = "*"
+    isfprefix =  word(other,ispec)
+    isffilter = null
+    Address SDSF "ISFEXEC da"
+    other_users = 0
+  /* --------------------------------------------------- *
+   | Now get the information on the other address spaces |
+   * --------------------------------------------------- */
+    do i = 1 to jname.0
+      lpar = sysname.i
+      user = jname.i
+      if wordpos(lpar,lpars) = 0
+      then lpars = lpars lpar
+      other_users = other_users + 1
+      users.lpar = users.lpar strip(user)
+      users.user = null
     end
-    c = c + 1
-    r.c = copies('-',60)
   end
-  r.0 = c
-
-  /* -------------------------- *
-  | Report out based on option |
-  * -------------------------- */
-  if strip(option) = null then do
-    do i = 1 to r.0
-      say r.i
-    end
-    exit 0
-  end
-  if option = 'B' then opt = 'Browse'
-  if option = 'V' then opt = 'View'
-
-Do_StemEdit:
-  call stemedit opt,'r.'
-  Exit 0
+  Return
 
   /* ------------------------ *
   | Display help information |
@@ -229,10 +276,10 @@ Get_User_Name:
   lurc = rc
   call outtrap 'off'
   if lurc > 0 then do
-     racflu = 0
-     name = null
-     return name
-     end
+    racflu = 0
+    name = null
+    return name
+  end
   parse value uid.1 with .'NAME='name 'OWNER='.
   return strip(cap1st(name))
   name = 'None'
@@ -292,11 +339,11 @@ Cap1st: Procedure
   string = translate(string,"abcdefghijklmnopqrstuvwxyz",,
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
   if pos(',',string) > 0
-     then do
-          string = translate(string,' ',',')
-          first2last = 1
-          end
-     else first2last = 0
+  then do
+    string = translate(string,' ',',')
+    first2last = 1
+  end
+  else first2last = 0
   len = words(string)
   do i = 1 to len
     w = word(string,i)
@@ -316,5 +363,5 @@ Cap1st: Procedure
     end
   end
   if first2last = 1 then
-     string = subword(string,2) word(string,1)
+  string = subword(string,2) word(string,1)
   return string

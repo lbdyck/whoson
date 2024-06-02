@@ -3,6 +3,9 @@
 WHOSON is a TSO command, written in REXX, that will generate a report
 of all, or selected, TSO and SSH users on all the systems within the SYSPLEX.
 
+ Also report on any other address spaces
+ - find *other* and follow instructions
+
 Will also work as an OMVS Shell command.
 
 ## Installation
