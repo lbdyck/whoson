@@ -59,6 +59,11 @@
   * -------------- */
   if strip(option) = '?' then call do_help
 
+  /* -------------------- *
+  | Define key variables |
+  * -------------------- */
+  parse value '' with null lpars users. tpref
+
   /* ------------------------------------------------------------ *
   | Site Customizations                                          |
   |                                                              |
@@ -67,18 +72,22 @@
   |                                                              |
   |             0 = Do not allow                                 |
   |             1 = Allow                                        |
+  |                                                              |
+  |    OTHER  - other address space names, or prefixes, to       |
+  |             report on                                        |
+  |                                                              |
+  |             null = ignore                                    |
+  |             ABC = look just for ABC                          |
+  |             AB* = look for prefix AB                         |
+  |                                                              |
   * ------------------------------------------------------------ */
   RACFLU = 1
+  OTHER  = null
 
   /* -------------------------- *
   | Enable SDSF Rexx Interface |
   * -------------------------- */
   x = isfcalls('on')
-
-  /* -------------------- *
-  | Define key variables |
-  * -------------------- */
-  parse value '' with null lpars users. tpref
 
   /* --------------------------------- *
   | Check and configure Prefix/Filter |
@@ -203,7 +212,6 @@ Do_Other:
   | If blank then no other check will be performed.      |
   * ---------------------------------------------------- */
   other_users = 0
-  other = null         /* *other* set to null to bypass */
   if strip(other) = null then return
   do ispec = 1 to words(other)
   /* -------------- *
