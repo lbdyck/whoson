@@ -1,5 +1,4 @@
 /* REXX */
-
   /* --------------------  rexx procedure  -------------------- *
   | Name:      WHOSON                                          |
   |                                                            |
@@ -7,7 +6,7 @@
   |            all SSH users on all systems in the SYSPLEX.    |
   |                                                            |
   |            Also report on any other address spaces         |
-  |            - find *other* and follow instructions          |
+  |            - find *custom* and follow instructions         |
   |                                                            |
   | Syntax:    %whoson option \ prefix-or-filter               |
   |                                                            |
@@ -29,11 +28,17 @@
   |                     - if you don't have RACF               |
   |                     - if made available to those who can't |
   |                       do an LU for other userids.          |
+  |                  2. Other define other started tasks to    |
+  |                     check by reading the JESMSGLG and      |
+  |                     extracting the ICH... userid           |
   |                                                            |
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
-  |            2024/06/21 LBD - Add *other* users              |
+  |            2024/06/04 LBD - Clean up SDSF for Other        |
+  |            2024/06/03 LBD - Add Other users                |
+  |                             implemented for Gateway z/OS   |
+  |                             web TSO address spaces         |
   |            2024/01/31 LBD - Enable to run under OMVS shell |
   |                           - correct for names with ,'s     |
   |                             with text before , going last  |
@@ -65,7 +70,7 @@
   parse value '' with null lpars users. tpref
 
   /* ------------------------------------------------------------ *
-  | Site Customizations                                          |
+  | Site Customizations   *custom*                               |
   |                                                              |
   |    RACFLU - allow or disallow doing an LU to get the name of |
   |             the TSO users.                                   |
@@ -220,8 +225,10 @@ Do_Other:
     isfsysname = '*'
     isfowner = "*"
     isfprefix =  word(other,ispec)
-    isffilter = null
-    Address SDSF "ISFEXEC da"
+    sdsffiltermode = 'AND'
+    sdsffilter = 'JNAME EQ' word(other,ispec) ,
+    'QUEUE EQ EXECUTION'
+    Address SDSF "ISFEXEC st"
     other_users = 0
   /* --------------------------------------------------- *
    | Now get the information on the other address spaces |
@@ -233,7 +240,7 @@ Do_Other:
       then lpars = lpars lpar
       other_users = other_users + 1
       users.lpar = users.lpar strip(user)
-      users.user = null
+      users.user = get_user_name(get_other_user_name())
     end
   end
   Return
@@ -292,6 +299,34 @@ Get_User_Name:
   return strip(cap1st(name))
   name = 'None'
   return name
+
+  /* ------------------------------------------------------ *
+   | Get Other User by looking in the JOBs JESMSGLG for the |
+   | ICH70001I message for the userid                       |
+   * ------------------------------------------------------ */
+Get_Other_User_Name:
+  x = isfcalls('on')
+  isfsysname = '*'
+  isfowner = "*"
+  isfprefix = '*'
+  sdsffiltermode = 'AND'
+  sdsffilter = 'JOBID EQ' jobid.i ,
+    'JNAME EQ' jname.i ,
+    'QUEUE EQ EXECUTION'
+  Address SDSF "ISFEXEC st (prefix st_"
+  Address SDSF "ISFACT ST TOKEN('"st_TOKEN.1"') PARM(NP ?) (prefix j_"
+  do id = 1 to j_dsname.0
+    if right(j_dsname.id,9) /= '.JESMSGLG' then iterate
+    Address SDSF "ISFACT ST TOKEN('"j_TOKEN.i"') PARM(NP SA) (prefix dd_"
+    'Execio * diskr' isfddname.1  '(finis stem in.'
+  end
+  userid = null
+  do io = in.0 to 1 by -1
+      if wordpos('ICH70001I',in.io) = 0 then iterate
+      return word(in.io,4)
+      end
+  x = isfcalls('off')
+  return userid
 
   /* --------------------  rexx procedure  -------------------- *
   | Name:      SortStr                                         |
