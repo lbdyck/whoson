@@ -35,6 +35,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2024/06/05 LBD - Fix one more bug with other    |
   |            2024/06/04 LBD - Clean up SDSF for Other        |
   |            2024/06/03 LBD - Add Other users                |
   |                             implemented for Gateway z/OS   |
@@ -308,16 +309,12 @@ Get_Other_User_Name:
   x = isfcalls('on')
   isfsysname = '*'
   isfowner = "*"
-  isfprefix = '*'
-  sdsffiltermode = 'AND'
-  sdsffilter = 'JOBID EQ' jobid.i ,
-    'JNAME EQ' jname.i ,
-    'QUEUE EQ EXECUTION'
+  isffilter = 'JOBID EQ' jobid.i
   Address SDSF "ISFEXEC st (prefix st_"
   Address SDSF "ISFACT ST TOKEN('"st_TOKEN.1"') PARM(NP ?) (prefix j_"
   do id = 1 to j_dsname.0
     if right(j_dsname.id,9) /= '.JESMSGLG' then iterate
-    Address SDSF "ISFACT ST TOKEN('"j_TOKEN.i"') PARM(NP SA) (prefix dd_"
+    Address SDSF "ISFACT ST TOKEN('"j_TOKEN.id"') PARM(NP SA) (prefix dd_"
     'Execio * diskr' isfddname.1  '(finis stem in.'
   end
   userid = null
