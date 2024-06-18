@@ -35,6 +35,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2024/06/18 LBD - dd start date/time             |
   |            2024/06/05 LBD - Fix one more bug with other    |
   |            2024/06/04 LBD - Clean up SDSF for Other        |
   |            2024/06/03 LBD - Add Other users                |
@@ -138,7 +139,7 @@
         sshflag = null
         tuid = uid
       end
-      r.c = left(tuid,9) users.uid sshflag
+      r.c = left(tuid,9) users.uid users.uid.dt sshflag
     end
     c = c + 1
     r.c = copies('-',length(r.1))
@@ -182,8 +183,9 @@ Do_TSO:
     tso_users = tso_users + 1
     users.lpar = users.lpar strip(user)
     if racflu = 1
-    then users.user = get_user_name(user)
+    then users.user = left(get_user_name(user),20)
     else users.user = null
+    users.user.dt = stdate.i
   end
   Return
 
@@ -207,8 +209,9 @@ Do_SSH:
     ssh_users = ssh_users + 1
     users.lpar = users.lpar user
     if racflu = 1
-    then users.user = get_user_name(user)
+    then users.user = left(get_user_name(user),20)
     else users.user = null
+    users.user.dt = stdate.i
   end
   Return
 
@@ -241,7 +244,8 @@ Do_Other:
       then lpars = lpars lpar
       other_users = other_users + 1
       users.lpar = users.lpar strip(user)
-      users.user = get_user_name(get_other_user_name())
+      users.user = left(get_user_name(get_other_user_name()),20)
+      users.user.dt = stdate.i
     end
   end
   Return
