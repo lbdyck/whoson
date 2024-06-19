@@ -35,7 +35,8 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
-  |            2024/06/18 LBD - dd start date/time             |
+  |            2024/06/19 LBD - Clean up                       |
+  |                           - can't use dates                |
   |            2024/06/05 LBD - Fix one more bug with other    |
   |            2024/06/04 LBD - Clean up SDSF for Other        |
   |            2024/06/03 LBD - Add Other users                |
@@ -105,11 +106,11 @@
     else tpref = strip(translate(prefix))
   end
 
+  parse value '0 0 0' with ssh_users tso_users other_users
+
   call Do_TSO
   call Do_SSH
   call Do_Other
-
-  total_users = ssh_users + tso_users + other_users
 
   /* ----------------------- *
   | Now Generate our Report |
@@ -174,7 +175,6 @@ Do_TSO:
   | Extract the system names and userids |
   * ------------------------------------ */
   Address SDSF "ISFEXEC da"
-  tso_users = 0
   do i = 1 to jname.0
     lpar = sysname.i
     user = jname.i
@@ -185,7 +185,6 @@ Do_TSO:
     if racflu = 1
     then users.user = left(get_user_name(user),20)
     else users.user = null
-    users.user.dt = stdate.i
   end
   Return
 
@@ -197,7 +196,6 @@ Do_SSH:
   isfowner = tpref"*"
   isffilter = 'jname sshd*'
   Address SDSF "ISFEXEC ps"
-  ssh_users = 0
   do i = 1 to jname.0
     if jobid.i /= null then iterate
     lpar = sysname.i
@@ -211,7 +209,6 @@ Do_SSH:
     if racflu = 1
     then users.user = left(get_user_name(user),20)
     else users.user = null
-    users.user.dt = stdate.i
   end
   Return
 
@@ -220,20 +217,16 @@ Do_Other:
   | Add address space prefixes (e.g. XX* AB*) to process |
   | If blank then no other check will be performed.      |
   * ---------------------------------------------------- */
-  other_users = 0
   if strip(other) = null then return
   do ispec = 1 to words(other)
   /* -------------- *
    | Define filters |
    * -------------- */
-    isfsysname = '*'
+    isfsysname = ''
     isfowner = "*"
+    isfdest = ' '
     isfprefix =  word(other,ispec)
-    sdsffiltermode = 'AND'
-    sdsffilter = 'JNAME EQ' word(other,ispec) ,
-    'QUEUE EQ EXECUTION'
-    Address SDSF "ISFEXEC st"
-    other_users = 0
+    Address SDSF "ISFEXEC da (verbose)"
   /* --------------------------------------------------- *
    | Now get the information on the other address spaces |
    * --------------------------------------------------- */
@@ -245,7 +238,6 @@ Do_Other:
       other_users = other_users + 1
       users.lpar = users.lpar strip(user)
       users.user = left(get_user_name(get_other_user_name()),20)
-      users.user.dt = stdate.i
     end
   end
   Return
