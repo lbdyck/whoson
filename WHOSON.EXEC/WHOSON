@@ -140,7 +140,7 @@
         sshflag = null
         tuid = uid
       end
-      r.c = left(tuid,9) users.uid users.uid.dt sshflag
+      r.c = left(tuid,9) users.uid sshflag
     end
     c = c + 1
     r.c = copies('-',length(r.1))
@@ -207,7 +207,7 @@ Do_SSH:
     ssh_users = ssh_users + 1
     users.lpar = users.lpar user
     if racflu = 1
-    then users.user = left(get_user_name(user),20)
+    then users.user = left(get_user_name(ownerid.i),20)
     else users.user = null
   end
   Return
@@ -226,7 +226,7 @@ Do_Other:
     isfowner = "*"
     isfdest = ' '
     isfprefix =  word(other,ispec)
-    Address SDSF "ISFEXEC da (verbose)"
+    Address SDSF "ISFEXEC da"
   /* --------------------------------------------------- *
    | Now get the information on the other address spaces |
    * --------------------------------------------------- */
@@ -290,11 +290,14 @@ Get_User_Name:
   if lurc > 0 then do
     racflu = 0
     name = null
+    drop uid.
     return name
   end
   parse value uid.1 with .'NAME='name 'OWNER='.
+  drop uid.
   return strip(cap1st(name))
   name = 'None'
+  drop uid.
   return name
 
   /* ------------------------------------------------------ *
