@@ -225,6 +225,7 @@ Do_Other:
     isfsysname = ''
     isfowner = "*"
     isfdest = ' '
+    isffilter = null
     isfprefix =  word(other,ispec)
     Address SDSF "ISFEXEC da"
   /* --------------------------------------------------- *
