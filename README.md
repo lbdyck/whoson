@@ -6,6 +6,8 @@ of all, or selected, TSO and SSH users on all the systems within the SYSPLEX.
  Also report on any other address spaces
  - find *custom* and follow instructions
 
+    Note that this option works from TSO/ISPF but fails under OMVS.
+
 Will also work as an OMVS Shell command.
 
 ## Installation
