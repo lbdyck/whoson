@@ -322,19 +322,18 @@ Get_Other_User_Name:
   x = isfcalls('on')
   isfsysname = '*'
   isfowner = "*"
+  isfprefix = jname.i
+  isfcols = null
   isffilter = 'JOBID EQ' jobid.i
   Address SDSF "ISFEXEC st (prefix st_"
+  do mi = 1 to isfmsg2.0;say isfmsg2.mi;end
+  isfcols = null
   Address SDSF "ISFACT ST TOKEN('"st_TOKEN.1"') PARM(NP ?) (prefix j_"
+  do mi = 1 to isfmsg2.0;say isfmsg2.mi;end
   do id = 1 to j_dsname.0
     if right(j_dsname.id,9) /= '.JESMSGLG' then iterate
-    Address SDSF "ISFACT ST TOKEN('"j_TOKEN.id"') PARM(NP SA) (prefix dd_"
-    'Execio * diskr' isfddname.1  '(finis stem in.'
-  end
-  userid = null
-  do io = in.0 to 1 by -1
-      if wordpos('ICH70001I',in.io) = 0 then iterate
-      return word(in.io,4)
-      end
+    Address SDSF "ISFBROWSE ST TOKEN('"j_token.id"')"
+    end
   x = isfcalls('off')
   return userid
 
