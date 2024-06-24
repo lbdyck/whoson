@@ -35,6 +35,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2024/06/24 LBD - Allow multiple others          |
   |            2024/06/21 LBD - Add date/time for users        |
   |            2024/06/19 LBD - Clean up                       |
   |                           - can't use dates                |
@@ -145,6 +146,8 @@
         sshflag = null
         tuid = uid
       end
+      if pos('.',tuid) > 0
+         then parse value tuid with tuid'.' .
       r.c = left(tuid,9) users.uid  left(users.uid.dt,20) sshflag
     end
     c = c + 1
@@ -246,12 +249,14 @@ Do_Other:
     do i = 1 to jname.0
       lpar = sysname.i
       user = jname.i
+      userz = user || '.'i
       if wordpos(lpar,lpars) = 0
       then lpars = lpars lpar
       other_users = other_users + 1
-      users.lpar = users.lpar strip(user)
-      users.user.dt = stdate.i
-      users.user = left(get_user_name(get_other_user_name()),20)
+      users.lpar = users.lpar strip(userz)
+      users.userz.dt = stdate.i
+      ouser = get_other_user_name()
+      users.userz = left(get_user_name(ouser),20)
     end
   end
   Return
@@ -297,6 +302,8 @@ Get_User_Name:
   if right(uid,1) = '>'
   then  tuid = left(uid,length(uid)-1)
   else tuid = uid
+  if pos('.',uid) > 0
+     then parse value uid with uid'.' .
   call  outtrap 'uid.'
   Address TSO 'lu' tuid
   lurc = rc
@@ -322,7 +329,7 @@ Get_Other_User_Name:
   x = isfcalls('on')
   isfsysname = '*'
   isfowner = "*"
-  isfprefix = jname.i
+  isfprefix = '*'
   isfcols = null
   isffilter = 'JOBID EQ' jobid.i
   Address SDSF "ISFEXEC st (prefix st_"
@@ -331,9 +338,9 @@ Get_Other_User_Name:
   do id = 1 to j_dsname.0
     if right(j_dsname.id,9) /= '.JESMSGLG' then iterate
     Address SDSF "ISFBROWSE ST TOKEN('"j_token.id"') (verbose"
-    do i = 1 to isfline.0
-       if pos('ICH70001I',isfline.i) > 0 then do
-          return word(isfline.i,4)
+    do isfl = isfline.0 to 1 by -1
+       if pos('ICH70001I',isfline.isfl) > 0 then do
+          return word(isfline.isfl,4)
           end
        end
     return userid
