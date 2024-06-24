@@ -250,8 +250,8 @@ Do_Other:
       then lpars = lpars lpar
       other_users = other_users + 1
       users.lpar = users.lpar strip(user)
-      users.user = left(get_user_name(get_other_user_name()),20)
       users.user.dt = stdate.i
+      users.user = left(get_user_name(get_other_user_name()),20)
     end
   end
   Return
@@ -326,13 +326,17 @@ Get_Other_User_Name:
   isfcols = null
   isffilter = 'JOBID EQ' jobid.i
   Address SDSF "ISFEXEC st (prefix st_"
-  do mi = 1 to isfmsg2.0;say isfmsg2.mi;end
   isfcols = null
   Address SDSF "ISFACT ST TOKEN('"st_TOKEN.1"') PARM(NP ?) (prefix j_"
-  do mi = 1 to isfmsg2.0;say isfmsg2.mi;end
   do id = 1 to j_dsname.0
     if right(j_dsname.id,9) /= '.JESMSGLG' then iterate
-    Address SDSF "ISFBROWSE ST TOKEN('"j_token.id"')"
+    Address SDSF "ISFBROWSE ST TOKEN('"j_token.id"') (verbose"
+    do i = 1 to isfline.0
+       if pos('ICH70001I',isfline.i) > 0 then do
+          return word(isfline.i,4)
+          end
+       end
+    return userid
     end
   x = isfcalls('off')
   return userid
