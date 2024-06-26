@@ -3,6 +3,8 @@
 `WHOSON` is a TSO command, written in REXX, that will generate a report
 of all, or selected, TSO and SSH users on all the systems within the SYSPLEX.
 
+*Note:* the system level and IPL date and time are also reported for each LPAR.
+
 ### Also report on any other address spaces
  - find *custom* and follow instructions
  - looks for the `ICH70001I` message in the JESMSGLG to report on the user

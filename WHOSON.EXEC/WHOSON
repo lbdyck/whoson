@@ -35,6 +35,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2024/06/26 LBD - Add LPAR IPL Info              |
   |            2024/06/24 LBD - Allow multiple others          |
   |            2024/06/21 LBD - Add date/time for users        |
   |            2024/06/19 LBD - Clean up                       |
@@ -117,6 +118,7 @@
   drop stdate. date. datee.
   isfcols = null
   call Do_Other
+  call get_ipl_info
 
   /* ----------------------- *
   | Now Generate our Report |
@@ -126,13 +128,14 @@
     'TSO Users:' tso_users 'SSH Users:' ssh_users
   if other_users > 0 then
   r.1 = r.1 'Other Users:' other_users
-  r.2 = copies('-',length(r.1))
+  r.2 = copies('-',length(r.1)+13)
   lpars = sortstr(lpars)
   do i = 1 to words(lpars)
     lpar = word(lpars,i)
     users = sortstr(users.lpar)
     c = c + 1
-    r.c = 'System:  ' left(lpar,8) 'Users:' words(users)
+    r.c = 'System:  ' left(lpar,8) 'Users:' words(users) ,
+           '   z/OS:' lpar.lpar
     do iu = 1 to words(users)
       c = c + 1
       uid = word(users,iu)
@@ -151,7 +154,7 @@
       r.c = left(tuid,9) users.uid  left(users.uid.dt,20) sshflag
     end
     c = c + 1
-    r.c = copies('-',length(r.1))
+    r.c = copies('-',length(r.1)+13)
   end
   r.0 = c
 
@@ -428,3 +431,19 @@ Cap1st: Procedure
   if first2last = 1 then
   string = subword(string,2) word(string,1)
   return string
+
+Get_IPL_Info: Procedure expose lpar.
+  x = isfcalls('on')
+  isfsysname = '*'
+  isfowner = "*"
+  Address SDSF 'ISFEXEC sys'
+  do i = 1 to sysname.0
+    parse value ipldate.i with date time
+    parse value date with 3 year'.'days
+    date = date('s',year||days,'j')
+    date = left(date,4)'/'substr(date,5,2)'/'right(date,2)
+    lparname = sysname.i
+    lpar.lparname = subword(syslevel.i,2,1) 'IPL:' date time
+  end
+  x = isfcalls('off')
+  return
