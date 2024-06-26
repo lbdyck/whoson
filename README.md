@@ -7,13 +7,15 @@ of all, or selected, TSO and SSH users on all the systems within the SYSPLEX.
  - find *custom* and follow instructions
  - looks for the `ICH70001I` message in the JESMSGLG to report on the user
 
-Will also work as an OMVS Shell command. 
+Will also work as an OMVS Shell command and has been included as
+`whoson.rex` in the git distribution for that purpose.
 
 ## Installation
 
 Copy the exec into a library in your `SYSEXEC`, or `SYSPROC`, allocated libraries.
 
-For use under OMVS copy the exec into OMVS and then `chmod +x whoson` and then tag as 
+For use under OMVS copy the `whoson.rex` exec into an OMVS
+directory in your `PATH` and then `chmod +x whoson` and then tag as
 IBM-1047 (`chtag -tc 1047`).
 
 ## Dependencies:
