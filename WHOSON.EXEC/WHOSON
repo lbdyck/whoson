@@ -35,6 +35,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2024/06/27 LBD - Improve report layout          |
   |            2024/06/26 LBD - Add LPAR IPL Info              |
   |            2024/06/24 LBD - Allow multiple others          |
   |            2024/06/21 LBD - Add date/time for users        |
@@ -124,11 +125,13 @@
   | Now Generate our Report |
   * ----------------------- */
   c = 2
+  dash_line = null
   r.1 = 'Interactive Users on' words(lpars) 'Systems:',
     'TSO Users:' tso_users 'SSH Users:' ssh_users
   if other_users > 0 then
   r.1 = r.1 'Other Users:' other_users
-  r.2 = copies('-',length(r.1)+13)
+  r.2 = 'dash'
+  dash_line = dash_line 2
   lpars = sortstr(lpars)
   do i = 1 to words(lpars)
     lpar = word(lpars,i)
@@ -154,9 +157,19 @@
       r.c = left(tuid,9) users.uid  left(users.uid.dt,20) sshflag
     end
     c = c + 1
-    r.c = copies('-',length(r.1)+13)
+    r.c = 'dash'
+    dash_line = dash_line c
   end
   r.0 = c
+  len = 0
+  do i = 1 to r.0
+     if length(r.i) > len then len = length(r.i)
+     end
+  dash = copies('-',len)
+  do i = 1 to words(dash_line)
+     rl = word(dash_line,i)
+     r.rl = dash
+     end
 
   /* -------------------------- *
   | Report out based on option |
