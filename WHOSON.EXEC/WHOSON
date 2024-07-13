@@ -35,6 +35,8 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2024/07/13 LBD - Detect zOSMF users (may be     |
+  |                             zowe explorer users)           |
   |            2024/06/27 LBD - Improve report layout          |
   |            2024/06/26 LBD - Add LPAR IPL Info              |
   |            2024/06/24 LBD - Allow multiple others          |
@@ -110,7 +112,7 @@
     else tpref = strip(translate(prefix))
   end
 
-  parse value '0 0 0' with ssh_users tso_users other_users
+  parse value '0 0 0 0' with ssh_users tso_users other_users zosmf_users
 
   call Do_TSO
   drop stdate. date. datee.
@@ -127,7 +129,7 @@
   c = 2
   dash_line = null
   r.1 = 'Interactive Users on' words(lpars) 'Systems:',
-    'TSO Users:' tso_users 'SSH Users:' ssh_users
+    'TSO Users:' tso_users 'SSH Users:' ssh_users 'zOSMF Users:' zosmf_users
   if other_users > 0 then
   r.1 = r.1 'Other Users:' other_users
   r.2 = 'dash'
@@ -142,15 +144,23 @@
     do iu = 1 to words(users)
       c = c + 1
       uid = word(users,iu)
-      if right(uid,1) = '>'
+      Select
+      When right(uid,1) = '>'
       then do
         sshflag = '(ssh)'
         name = subword(users.uid,1)
         tuid = left(uid,length(uid)-1)
       end
-      else do
+      When right(uid,1) = '*'
+      then do
+        sshflag = '(zOSMF)'
+        name = subword(users.uid,1)
+        tuid = left(uid,length(uid)-1)
+      end
+      Otherwise do
         sshflag = null
         tuid = uid
+      end
       end
       if pos('.',tuid) > 0
          then parse value tuid with tuid'.' .
@@ -202,6 +212,10 @@ Do_TSO:
   do i = 1 to jname.0
     lpar = sysname.i
     user = jname.i
+    if left(stepn.i,3) = 'IZU' then do
+       user = user'*'
+       zosmf_users = zosmf_users + 1
+       end
     if wordpos(lpar,lpars) = 0
     then lpars = lpars lpar
     tso_users = tso_users + 1
@@ -320,6 +334,9 @@ Get_User_Name:
   else tuid = uid
   if pos('.',uid) > 0
      then parse value uid with uid'.' .
+  if right(uid,1) = '*'
+  then  tuid = left(uid,length(uid)-1)
+  else tuid = uid
   call  outtrap 'uid.'
   Address TSO 'lu' tuid
   lurc = rc

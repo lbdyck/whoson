@@ -2,6 +2,7 @@
 
 `WHOSON` is a TSO command, written in REXX, that will generate a report
 of all, or selected, TSO and SSH users on all the systems within the SYSPLEX.
+Will also report on zOSMF users (which includes Zowe Explorer users).
 
 *Note:* the system level and IPL date and time are also reported for each LPAR.
 
