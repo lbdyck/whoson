@@ -15,7 +15,8 @@ Will also work as an OMVS Shell command and has been included as
 
 ## Installation
 
-Copy the exec into a library in your `SYSEXEC`, or `SYSPROC`, allocated libraries.
+Copy the exec into a library in your `SYSEXEC`, or `SYSPROC`, allocated
+libraries.
 
 For use under OMVS copy the `whoson.rex` exec into an OMVS
 directory in your `PATH` and then `chmod +x whoson` and then tag as
