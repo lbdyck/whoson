@@ -4,7 +4,10 @@
 of all, or selected, TSO and SSH users on all the systems within the SYSPLEX.
 Will also report on zOSMF users (which includes Zowe Explorer users).
 
-*Note:* the system level and IPL date and time are also reported for each LPAR.
+*Notes:*
+ - the system level and IPL date and time are also reported for each LPAR.
+ - only zOSMF users who use files or JES servics that start a TSO addres
+space (proc:IZUFPROC) can be detected.
 
 ### Also report on any other address spaces
  - find *custom* and follow instructions

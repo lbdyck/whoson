@@ -5,6 +5,11 @@
   | Function:  Using SDSF REXX query for all TSO users and     |
   |            all SSH users on all systems in the SYSPLEX.    |
   |                                                            |
+  |            Also detect zOSMF and Zowe users. For zOSMF     |
+  |            only those users using files or JES services    |
+  |            that create a TSO address space (proc:IZUFPROC) |
+  |            are able to be detectd.                         |
+  |                                                            |
   |            Also report on any other address spaces         |
   |            - find *custom* and follow instructions         |
   |                                                            |
@@ -35,6 +40,7 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2024/07/14 LBD - Adjust zOSMF flag to zOSMF/Zowe|
   |            2024/07/13 LBD - Detect zOSMF users (may be     |
   |                             zowe explorer users)           |
   |            2024/06/27 LBD - Improve report layout          |
@@ -153,7 +159,7 @@
       end
       When right(uid,1) = '*'
       then do
-        sshflag = '(zOSMF)'
+        sshflag = '(zOSMF/Zowe)'
         name = subword(users.uid,1)
         tuid = left(uid,length(uid)-1)
       end
