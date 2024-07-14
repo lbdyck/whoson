@@ -135,7 +135,8 @@
   c = 2
   dash_line = null
   r.1 = 'Interactive Users on' words(lpars) 'Systems:',
-    'TSO Users:' tso_users 'SSH Users:' ssh_users 'zOSMF Users:' zosmf_users
+    'TSO Users:' tso_users-zosmf_users ,
+    'SSH Users:' ssh_users 'zOSMF Users:' zosmf_users
   if other_users > 0 then
   r.1 = r.1 'Other Users:' other_users
   r.2 = 'dash'
