@@ -137,7 +137,7 @@
   c = 2
   dash_line = null
   r.1 = 'Interactive Users on' words(lpars) 'Systems:',
-    'TSO Users:' tso_users-zosmf_users ,
+    'TSO Users:' tso_users ,
     'SSH Users:' ssh_users 'zOSMF Users:' zosmf_users
   if other_users > 0 then
   r.1 = r.1 'Other Users:' other_users
@@ -225,9 +225,9 @@ Do_TSO:
        user = user'*'
        zosmf_users = zosmf_users + 1
        end
+    else tso_users = tso_users + 1
     if wordpos(lpar,lpars) = 0
     then lpars = lpars lpar
-    tso_users = tso_users + 1
     users.lpar = users.lpar strip(user)
     if racflu = 1
     then users.user = left(get_user_name(user),20)
