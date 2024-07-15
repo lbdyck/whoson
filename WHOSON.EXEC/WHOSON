@@ -41,6 +41,7 @@
   |                                                            |
   | History:  (most recent on top)                             |
   |            2024/07/15 LBD - Fixup zOSMF & remove Zowe flag |
+  |                           - Clean up title (less space)    |
   |            2024/07/14 LBD - Adjust zOSMF flag to zOSMF/Zowe|
   |            2024/07/13 LBD - Detect zOSMF users (may be     |
   |                             zowe explorer users)           |
@@ -136,11 +137,11 @@
   * ----------------------- */
   c = 2
   dash_line = null
-  r.1 = 'Interactive Users on' words(lpars) 'Systems:',
-    'TSO Users:' tso_users ,
-    'SSH Users:' ssh_users 'zOSMF Users:' zosmf_users
+  r.1 = 'Interactive Users on' words(lpars) 'Systems -',
+    'TSO:' tso_users ,
+    'SSH:' ssh_users 'zOSMF:' zosmf_users
   if other_users > 0 then
-  r.1 = r.1 'Other Users:' other_users
+  r.1 = r.1 'Other:' other_users
   r.2 = 'dash'
   dash_line = dash_line 2
   lpars = sortstr(lpars)
