@@ -7,7 +7,7 @@ Will also report on zOSMF users (which includes Zowe Explorer users).
 *Notes:*
  - the system level and IPL date and time are also reported for each LPAR.
  - only zOSMF users who use files or JES servics that start a TSO addres
-space (proc:IZUFPROC) can be detected.
+space can be detected (step starts with IZU or procstep has lowercase).
 
 ### Also report on any other address spaces
  - find *custom* and follow instructions
