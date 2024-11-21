@@ -5,6 +5,12 @@
   | Function:  Using SDSF REXX query for all TSO users and     |
   |            all SSH users on all systems in the SYSPLEX.    |
   |                                                            |
+  |            Also detect zOSMF users. For zOSMF oly those    |
+  |            users using files or JES services that create   |
+  |            a TSO address space that can be detected by a   |
+  |            proc step name with lowercase, or a stepname    |
+  |            starting with IZU.                              |
+  |                                                            |
   |            Also report on any other address spaces         |
   |            - find *custom* and follow instructions         |
   |                                                            |
@@ -35,6 +41,16 @@
   | Author:    Lionel B. Dyck                                  |
   |                                                            |
   | History:  (most recent on top)                             |
+  |            2024/11/21 LBD - Change LU rc check for > 4     |
+  |            2024/07/17 LBD - For zOSMF/Zowe check proc for  |
+  |                             IZU in addition to lowercase   |
+  |            2024/07/16 LBD - Report 'human' dates instead of|
+  |                             julian dates                   |
+  |            2024/07/15 LBD - Fixup zOSMF & remove Zowe flag |
+  |                           - Clean up title (less space)    |
+  |            2024/07/14 LBD - Adjust zOSMF flag to zOSMF/Zowe|
+  |            2024/07/13 LBD - Detect zOSMF users (may be     |
+  |                             zowe explorer users)           |
   |            2024/06/27 LBD - Improve report layout          |
   |            2024/06/26 LBD - Add LPAR IPL Info              |
   |            2024/06/24 LBD - Allow multiple others          |
@@ -75,6 +91,7 @@
   | Define key variables |
   * -------------------- */
   parse value '' with null lpars users. tpref
+  upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
   /* ------------------------------------------------------------ *
   | Site Customizations   *custom*                               |
@@ -110,7 +127,7 @@
     else tpref = strip(translate(prefix))
   end
 
-  parse value '0 0 0' with ssh_users tso_users other_users
+  parse value '0 0 0 0' with ssh_users tso_users other_users zosmf_users
 
   call Do_TSO
   drop stdate. date. datee.
@@ -126,10 +143,11 @@
   * ----------------------- */
   c = 2
   dash_line = null
-  r.1 = 'Interactive Users on' words(lpars) 'Systems:',
-    'TSO Users:' tso_users 'SSH Users:' ssh_users
+  r.1 = 'Interactive Users on' words(lpars) 'Systems -',
+    'TSO:' tso_users ,
+    'SSH:' ssh_users 'zOSMF:' zosmf_users
   if other_users > 0 then
-  r.1 = r.1 'Other Users:' other_users
+  r.1 = r.1 'Other:' other_users
   r.2 = 'dash'
   dash_line = dash_line 2
   lpars = sortstr(lpars)
@@ -142,15 +160,23 @@
     do iu = 1 to words(users)
       c = c + 1
       uid = word(users,iu)
-      if right(uid,1) = '>'
+      Select
+      When right(uid,1) = '>'
       then do
         sshflag = '(ssh)'
         name = subword(users.uid,1)
         tuid = left(uid,length(uid)-1)
       end
-      else do
+      When right(uid,1) = '*'
+      then do
+        sshflag = '(zOSMF)'
+        name = subword(users.uid,1)
+        tuid = left(uid,length(uid)-1)
+      end
+      Otherwise do
         sshflag = null
         tuid = uid
+      end
       end
       if pos('.',tuid) > 0
          then parse value tuid with tuid'.' .
@@ -202,16 +228,25 @@ Do_TSO:
   do i = 1 to jname.0
     lpar = sysname.i
     user = jname.i
+    if zosmf_chk(procs.i) /= null then do
+       user = user'*'
+       zosmf_users = zosmf_users + 1
+       end
+    else tso_users = tso_users + 1
     if wordpos(lpar,lpars) = 0
     then lpars = lpars lpar
-    tso_users = tso_users + 1
     users.lpar = users.lpar strip(user)
     if racflu = 1
     then users.user = left(get_user_name(user),20)
     else users.user = null
-    users.user.dt = stdate.i
+    users.user.dt = fix_date(word(stdate.i,1)) word(stdate.i,2)
   end
   Return
+
+zosmf_chk:
+  parse arg str
+  if left(stepn.i,3) = 'IZU' then return 'IZU'
+  return space(translate(str,' ',upper),0)
 
 Do_SSH:
   /* --------------- SSH ---------------- *
@@ -234,7 +269,7 @@ Do_SSH:
     if racflu = 1
     then users.user = left(get_user_name(ownerid.i),20)
     else users.user = null
-    users.user.dt = datee.i fix_timee(timee.i)
+    users.user.dt = fix_date(datee.i) fix_timee(timee.i)
   end
   Return
 
@@ -270,7 +305,7 @@ Do_Other:
       then lpars = lpars lpar
       other_users = other_users + 1
       users.lpar = users.lpar strip(userz)
-      users.userz.dt = stdate.i
+      users.userz.dt = fix_date(word(stdate.i,1)) word(stdate.i,2)
       ouser = get_other_user_name()
       users.userz = left(get_user_name(ouser),20)
     end
@@ -320,11 +355,14 @@ Get_User_Name:
   else tuid = uid
   if pos('.',uid) > 0
      then parse value uid with uid'.' .
+  if right(uid,1) = '*'
+  then  tuid = left(uid,length(uid)-1)
+  else tuid = uid
   call  outtrap 'uid.'
   Address TSO 'lu' tuid
   lurc = rc
   call outtrap 'off'
-  if lurc > 0 then do
+  if lurc > 4 then do
     racflu = 0
     name = null
     drop uid.
@@ -460,3 +498,12 @@ Get_IPL_Info: Procedure expose lpar.
   end
   x = isfcalls('off')
   return
+
+Fix_Date: Procedure
+  arg jdate
+  parse value jdate with 3 yy'.'ddd
+  jdate = yy || ddd
+  base = date('B',jdate,'J')
+  good = date('s',base,'b')
+  parse value good with year 5 mm 7 dd
+  return year'/'mm'/'dd
